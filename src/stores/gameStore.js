@@ -2,28 +2,53 @@ import { get, writable } from "svelte/store";
 import { v4 as uuidv4 } from 'uuid';
 import guesses from "../guesses.js";
 import { ALERT_TYPES, displayAlert } from "./alertStore.js";
-import { GAME_STATES, LETTER_STATES, ALPHABET, MAX_LETTERS, MAX_GUESSES, ID_NAME, GUESSES_NAME, LAST_COMPLETED_NAME, CURRENT_LETTER_INDEX_NAME, CURRENT_WORD_INDEX_NAME, GAME_STATE_NAME } from "../constants.js";
+import CONSTANTS from "../constants.js";
 
 export const correctWord = writable();
-export const userGuessesArr = writable([]);
+export const userGuessesArray = writable([]);
 export const currentWordIndex = writable(0);
 export const currentLetterIndex = writable(0);
-export const gameState = writable(GAME_STATES.PLAYING);
+export const gameState = writable(CONSTANTS.GAME_STATES.PLAYING);
 export const letterStatuses = writable({});
 const userId = writable();
 
+//SETTERS
+const setAndSaveUserId = (id) => {
+    localStorage.setItem(CONSTANTS.ID_NAME, id)
+    userId.set(id);
+}
+
+const setAndSaveUserGuessesArray = (guesses) => {
+  userGuessesArray.set(guesses);
+  localStorage.setItem(CONSTANTS.GUESSES_NAME, JSON.stringify(guesses));
+}
+
+const setAndSaveCurrentLetterIndex = (index) => {
+    currentLetterIndex.set(index);
+    localStorage.setItem(CONSTANTS.CURRENT_LETTER_INDEX_NAME, index);
+}
+
+const setAndSaveCurrentWordIndex = (index) => {
+  currentWordIndex.set(index);
+  localStorage.setItem(CONSTANTS.CURRENT_WORD_INDEX_NAME, index);
+}
 const setAndSaveGameState = (state) => {
-        gameState.set(GAME_STATES.WIN);
-        localStorage.setItem(GAME_STATE_NAME, state);
+  gameState.set(state);
+  localStorage.setItem(CONSTANTS.GAME_STATE_NAME, state);
 }
 
+//LOADERS
 const loadGameState = () => {
-    localStorage.getItem(GAME_STATE_NAME) || GAME_STATES.PLAYINGl
+  const loadedState = localStorage.getItem(CONSTANTS.GAME_STATE_NAME);
+  if( !loadedState || !Object.keys(CONSTANTS.GAME_STATES).includes(loadedState)){
+    return CONSTANTS.GAME_STATES.PLAYING;
+  }  
+  return loadedState;
 }
 
 
-const loadLastCompletedDate = () => {
-    const existingDateStr = localStorage.getItem(LAST_COMPLETED_NAME);
+const loadLastPlayedDate = () => {
+    const existingDateStr = localStorage.getItem(CONSTANTS.LAST_PLAYED_NAME);
     if(existingDateStr){
         return new Date(existingDateStr);
     }
@@ -45,47 +70,46 @@ const loadCurrentWord = async () => {
     }
 }
 
-const loadUserGuessesArr = () => {
-    const userGuessesStr = localStorage.getItem(GUESSES_NAME);
+const loadUserGuessesArray = () => {
+    const userGuessesStr = localStorage.getItem(CONSTANTS.GUESSES_NAME);
     try {
-        const loadedUserGuessesArr = JSON.parse(userGuessesStr);
-        if(!loadedUserGuessesArr) return generateEmptyGuessesArray();
+        const loadedUserGuessesArray = JSON.parse(userGuessesStr);
+        if(!loadedUserGuessesArray) return generateEmptyGuessesArray();
 
-        return loadedUserGuessesArr;
+        return loadedUserGuessesArray;
     }catch(err){
         return generateEmptyGuessesArray()
     }
 }
 
 const loadUserId = () => {
-    const existingId = localStorage.getItem(ID_NAME);
+    const existingId = localStorage.getItem(CONSTANTS.ID_NAME);
     if(existingId){
         return existingId;
     }
     return uuidv4();
 }
 
-const setAndSaveUserId = (id) => {
-    localStorage.setItem(ID_NAME, id)
-    userId.set(id);
-}
+const loadCurrentLetterIndex = () => Number(localStorage.getItem(CONSTANTS.CURRENT_LETTER_INDEX_NAME)) || 0;
+const loadCurrentWordIndex = () => Number(localStorage.getItem(CONSTANTS.CURRENT_WORD_INDEX_NAME)) || 0;
 
+//GAME FUNCTIONALITY
 export const guessLetter = (letter) => {
-    if(letter.length > 1 || get(currentLetterIndex) >= MAX_LETTERS) {
+    if(letter.length > 1 || get(currentLetterIndex) >= CONSTANTS.MAX_LETTERS) {
         return;
     }
 
-    userGuessesArr.update( prev => {
+    userGuessesArray.update( prev => {
         prev[get(currentWordIndex)][get(currentLetterIndex)] = letter.toUpperCase();
         setAndSaveCurrentLetterIndex(get(currentLetterIndex) + 1);
-        localStorage.setItem(GUESSES_NAME, JSON.stringify(prev));
+        localStorage.setItem(CONSTANTS.GUESSES_NAME, JSON.stringify(prev));
         return prev;
     })
 }
 
 export const deleteLetter = () => {
     if(get(currentLetterIndex) > 0){
-        userGuessesArr.update( prev => {
+        userGuessesArray.update( prev => {
             prev[get(currentWordIndex)][get(currentLetterIndex) - 1] = "";
             setAndSaveCurrentLetterIndex(get(currentLetterIndex) - 1);
             return prev;
@@ -95,115 +119,120 @@ export const deleteLetter = () => {
 
 
 export const guessWord = () => {
-    if(get(currentLetterIndex) < MAX_LETTERS){
-        displayAlert('Not enough letters.', ALERT_TYPES.INFO, 2000)
+    if(get(currentLetterIndex) < CONSTANTS.MAX_LETTERS){
+        return displayAlert('Not enough letters.', ALERT_TYPES.INFO, 2000)
     }
-    else {
-        const currentGuessArr = get(userGuessesArr)[get(currentWordIndex)];
-        const currentCorrectWord = get(correctWord);
-        console.log(currentCorrectWord);
+    const guessesArr = get(userGuessesArray);
+    const currentGuessArray = guessesArr[get(currentWordIndex)];
+    const guessStr = currentGuessArray.join('');
 
-        letterStatuses.update(prevLetterStatuses => {
-            currentGuessArr.forEach((letter,i) => {
-                if(prevLetterStatuses[letter]) {
-                    if(prevLetterStatuses[letter] === LETTER_STATES.CORRECT_SPOT){
-                        return;
-                    }
-                    if(letter.toUpperCase() === currentCorrectWord[i]){
-                        prevLetterStatuses[letter] =  LETTER_STATES.CORRECT_SPOT;
-                    }else if( currentCorrectWord.includes(letter)){
-                        prevLetterStatuses[letter] = LETTER_STATES.WRONG_SPOT;
-                    }
-                    else{
-                        prevLetterStatuses[letter] = LETTER_STATES.NOT_FOUND
-                    }
-                }
-            })
-            return prevLetterStatuses
-        }) 
-        displayFeedback(currentGuessArr.join(''));
-    }
-}
-
-
-
-const displayFeedback = (guessStr) => {
     if(!guesses.includes(guessStr.toLowerCase())){
         return displayAlert('Not a word in the list.', ALERT_TYPES.INFO, 2000);
     }
-    if(guessStr === get(correctWord)){
-        setAndSaveGameState(GAME_STATES.WIN);
-        displayAlert('Congratulations, you win!', ALERT_TYPES.SUCCESS)
-        localStorage.setItem(LAST_COMPLETED_NAME, new Date());
-    }else if( get(currentWordIndex) === MAX_GUESSES - 1){
-        setAndSaveGameState(GAME_STATES.LOSE);
-        displayAlert('Sorry, but you lost.', ALERT_TYPES.DANGER)
-        localStorage.setItem(LAST_COMPLETED_NAME, new Date());
-    }
-    
+
+    const updatedGameState = getUpdatedGameState(guessStr, get(currentWordIndex));
+    setAndSaveGameState(updatedGameState);
+    displayFeedback(updatedGameState);
+
     setAndSaveCurrentWordIndex(get(currentWordIndex) + 1);
     setAndSaveCurrentLetterIndex(0);
+    updateLetterStatuses(guessesArr, get(correctWord));
+    
+    localStorage.setItem(CONSTANTS.LAST_PLAYED_NAME, new Date());
+}
+
+const getUpdatedGameState = (guessStr, wordIndex) => {
+    if(guessStr === get(correctWord)){
+        return CONSTANTS.GAME_STATES.WIN;
+        
+    }else if(wordIndex === CONSTANTS.MAX_GUESSES - 1){
+        return CONSTANTS.GAME_STATES.LOSE;
+    }
+    else {
+      return CONSTANTS.GAME_STATES.PLAYING
+    }
+}
+
+const displayFeedback = (state) => { 
+  if(state === CONSTANTS.GAME_STATES.WIN) {
+    displayAlert('Congratulations, you win!', ALERT_TYPES.SUCCESS)
+  }else if(state === CONSTANTS.GAME_STATES.LOSE){
+        displayAlert('Sorry, but you lost.', ALERT_TYPES.DANGER)
+  }
 }
 
 const generateEmptyGuessesArray = () => {
     const emptyGuesses = [];
-    for (let i = 0; i < MAX_GUESSES; i++) {
-        emptyGuesses.push(Array(MAX_LETTERS).fill(""));
+    for (let i = 0; i < CONSTANTS.MAX_GUESSES; i++) {
+        emptyGuesses.push(Array(CONSTANTS.MAX_LETTERS).fill(""));
     }
     return emptyGuesses
 }
 
-const setAndSaveCurrentLetterIndex = (index) => {
-    currentLetterIndex.set(index);
-    localStorage.setItem(CURRENT_LETTER_INDEX_NAME, index);
-}
-
-const setAndSaveCurrentWordIndex = (index) => {
-    currentWordIndex.set(index);
-    localStorage.setItem(CURRENT_WORD_INDEX_NAME, index);
-}
-
-const loadCurrentLetterIndex = () => Number(localStorage.getItem(CURRENT_LETTER_INDEX_NAME)) || 0;
-const loadCurrentWordIndex = () => Number(localStorage.getItem(CURRENT_WORD_INDEX_NAME)) || 0;
-
 export const initializeGame = async () => {
-    setAndSaveUserId(loadUserId());
-    setAndSaveCurrentLetterIndex(loadCurrentLetterIndex());
-    setAndSaveCurrentWordIndex(loadCurrentWordIndex());
-    correctWord.set(await loadCurrentWord())
-    userGuessesArr.set(loadUserGuessesArr());
-    correctWord.set(await loadCurrentWord());
-    gameState.set(loadGameState());
+  correctWord.set(await loadCurrentWord())
+  letterStatuses.set(generateInitialLetterStatuses());
 
-    //TODO: reset guesses if past current date
-    const loadedLastCompletedDate = loadLastCompletedDate();
-    if(hasAlreadyPlayedToday(loadedLastCompletedDate)){
-        //TODO: update for win or lost
-        console.log(get(userGuessesArr));
-    }else {
-        //RESET
-        setAndSaveCurrentLetterIndex(0);
-        setAndSaveCurrentWordIndex(0);
-        userGuessesArr.set(generateEmptyGuessesArray());
-        gameState.set(GAME_STATES.PLAYING);
-    }
-    
-    //TODO: update letter statuses based on existing user guess
-    const initialLetterStatuses = ALPHABET.reduce((acc, cur) => {
-        acc[cur] = LETTER_STATES.AVAILABLE;
-        return acc;
-    },{})
-    letterStatuses.set(initialLetterStatuses);
+  const loadedLastPlayedDate = loadLastPlayedDate();    
+    if(!hasAlreadyPlayedToday(loadedLastPlayedDate)){
+      return resetGame();
+  }
+
+  setAndSaveUserId(loadUserId());
+  setAndSaveCurrentLetterIndex(loadCurrentLetterIndex());
+  setAndSaveCurrentWordIndex(loadCurrentWordIndex());
+  setAndSaveUserGuessesArray(loadUserGuessesArray());
+  updateLetterStatuses(get(userGuessesArray), get(correctWord));
+  const loadedState = loadGameState();
+  setAndSaveGameState(loadedState);
+  displayFeedback(loadedState);
+
 }
 
-const hasAlreadyPlayedToday = (lastCompletedDate) => {
-    if(!lastCompletedDate) return false;
+const updateLetterStatuses = (guessesArray, correctWord) => {
+  letterStatuses.update(prevLetterStatuses => {
+    guessesArray.forEach( singleGuessArray => {
+      singleGuessArray.forEach((letter, i) => {
+        if(prevLetterStatuses[letter] === CONSTANTS.LETTER_STATES.CORRECT_SPOT){
+          return;
+        }
+        if(letter.toUpperCase() === correctWord[i]){
+          prevLetterStatuses[letter] =  CONSTANTS.LETTER_STATES.CORRECT_SPOT;
+        }else if( correctWord.includes(letter)){
+          prevLetterStatuses[letter] = CONSTANTS.LETTER_STATES.WRONG_SPOT;
+        }
+        else{
+          prevLetterStatuses[letter] = CONSTANTS.LETTER_STATES.NOT_FOUND
+        }
+      })
+    })
+    return prevLetterStatuses
+  }) 
+}
 
-    const today = new Date();
-     return (lastCompletedDate.getFullYear() === today.getFullYear() &&
-           lastCompletedDate.getDate() === today.getDate() &&
-           lastCompletedDate.getMonth() === today.getMonth());
+const generateInitialLetterStatuses = () => {
+  const initialLetterStatuses = CONSTANTS.ALPHABET.reduce((acc, cur) => {
+      acc[cur] = CONSTANTS.LETTER_STATES.AVAILABLE;
+      return acc;
+  },{})
+  return initialLetterStatuses;
+}
 
+const resetGame = () => {
+  setAndSaveCurrentLetterIndex(0);
+  setAndSaveCurrentWordIndex(0);
+  setAndSaveUserGuessesArray(generateEmptyGuessesArray());
+  updateLetterStatuses(get(userGuessesArray), get(correctWord));
+  setAndSaveGameState(CONSTANTS.GAME_STATES.PLAYING)
+}
+
+const hasAlreadyPlayedToday = (lastPlayed) => {
+  if(!lastPlayed) return false;
+
+  const today = new Date();
+  return (lastPlayed.getFullYear() === today.getFullYear() &&
+    lastPlayed.getDate() === today.getDate() &&
+    lastPlayed.getMonth() === today.getMonth());
 } 
 
 

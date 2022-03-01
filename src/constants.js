@@ -35,12 +35,12 @@ const MAX_LETTERS = 5;
 const MAX_GUESSES = 6;
 const ID_NAME = "svordle_sessionId";
 const GUESSES_NAME = "svordle_userGuessesStr";
-const LAST_COMPLETED_NAME = "svordle_lastCompletedDate"
+const LAST_PLAYED_NAME = "svordle_lastPlayedDate"
 const CURRENT_WORD_INDEX_NAME = "svordle_currentWordIndex";
 const CURRENT_LETTER_INDEX_NAME = "svordle_currentLetterIndex";
 const GAME_STATE_NAME = "svordle_gameState";
 
-export {
+export default {
     GAME_STATES,
     LETTER_STATES,
     LETTER_STATUS_TO_BG_MAP,
@@ -49,7 +49,7 @@ export {
     MAX_GUESSES,
     ID_NAME,
     GUESSES_NAME,
-    LAST_COMPLETED_NAME,
+    LAST_PLAYED_NAME,
     KEYBOARD_ROWS_ARR,
     CURRENT_LETTER_INDEX_NAME,
     CURRENT_WORD_INDEX_NAME,
