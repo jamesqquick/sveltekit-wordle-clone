@@ -1,6 +1,7 @@
 import { get, writable } from "svelte/store";
 import { v4 as uuidv4 } from 'uuid';
 import guesses from "../guesses.js";
+import answers from "../answers.js";
 import { ALERT_TYPES, displayAlert } from "./alertStore.js";
 import CONSTANTS from "../constants.js";
 
@@ -32,7 +33,7 @@ const setAndSaveCurrentWordIndex = (index) => {
   currentWordIndex.set(index);
   localStorage.setItem(CONSTANTS.CURRENT_WORD_INDEX_NAME, index);
 }
-const setAndSaveGameState = (state) => {
+export const setAndSaveGameState = (state) => {
   gameState.set(state);
   localStorage.setItem(CONSTANTS.GAME_STATE_NAME, state);
 }
@@ -56,18 +57,10 @@ const loadLastPlayedDate = () => {
 }
 
 const loadCurrentWord = async () => {
-    try {
-        const res = await fetch('/api/currentWord');
-        if(res.status !== 200) {
-            return "BREAK";
-        }
-        const word = await res.json();
-        return word.toUpperCase();
-    } catch (err) {
-        console.error(err);
-        //TODO: update with fallback logic
-        return "BREAK";
-    }
+  //TODO: update to consistent hashing algorithm
+  const randomNum = Math.floor(Math.random() * answers.length);
+  console.log(answers[randomNum].toUpperCase());
+  return "SVELT";
 }
 
 const loadUserGuessesArray = () => {
@@ -83,11 +76,7 @@ const loadUserGuessesArray = () => {
 }
 
 const loadUserId = () => {
-    const existingId = localStorage.getItem(CONSTANTS.ID_NAME);
-    if(existingId){
-        return existingId;
-    }
-    return uuidv4();
+    return localStorage.getItem(CONSTANTS.ID_NAME);
 }
 
 const loadCurrentLetterIndex = () => Number(localStorage.getItem(CONSTANTS.CURRENT_LETTER_INDEX_NAME)) || 0;
@@ -126,9 +115,9 @@ export const guessWord = () => {
     const currentGuessArray = guessesArr[get(currentWordIndex)];
     const guessStr = currentGuessArray.join('');
 
-    if(!guesses.includes(guessStr.toLowerCase())){
-        return displayAlert('Not a word in the list.', ALERT_TYPES.INFO, 2000);
-    }
+    // if(!guesses.includes(guessStr.toLowerCase())){
+    //     return displayAlert('Not a word in the list.', ALERT_TYPES.INFO, 2000);
+    // }
 
     const updatedGameState = getUpdatedGameState(guessStr, get(currentWordIndex));
     setAndSaveGameState(updatedGameState);
@@ -173,12 +162,18 @@ export const initializeGame = async () => {
   correctWord.set(await loadCurrentWord())
   letterStatuses.set(generateInitialLetterStatuses());
 
+  const loadedUserId = loadUserId();
+  if(!loadedUserId) {
+    setAndSaveUserId(uuidv4());      
+    return resetGame(true);    
+  }
+  setAndSaveUserId(loadedUserId);
+
   const loadedLastPlayedDate = loadLastPlayedDate();    
     if(!hasAlreadyPlayedToday(loadedLastPlayedDate)){
-      return resetGame();
+      return resetGame(false);
   }
 
-  setAndSaveUserId(loadUserId());
   setAndSaveCurrentLetterIndex(loadCurrentLetterIndex());
   setAndSaveCurrentWordIndex(loadCurrentWordIndex());
   setAndSaveUserGuessesArray(loadUserGuessesArray());
@@ -218,12 +213,16 @@ const generateInitialLetterStatuses = () => {
   return initialLetterStatuses;
 }
 
-const resetGame = () => {
+const resetGame = (newPlayer = false) => {
   setAndSaveCurrentLetterIndex(0);
   setAndSaveCurrentWordIndex(0);
   setAndSaveUserGuessesArray(generateEmptyGuessesArray());
   updateLetterStatuses(get(userGuessesArray), get(correctWord));
-  setAndSaveGameState(CONSTANTS.GAME_STATES.PLAYING)
+  if(newPlayer){
+    setAndSaveGameState(CONSTANTS.GAME_STATES.NEW_PLAYER)
+  }else {
+    setAndSaveGameState(CONSTANTS.GAME_STATES.PLAYING)
+  }
 }
 
 const hasAlreadyPlayedToday = (lastPlayed) => {

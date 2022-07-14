@@ -1,5 +1,5 @@
 <script>
-    import {userGuessesArray, currentWordIndex} from "../stores/gameStore";
+    import {userGuessesArray} from "../stores/gameStore";
     import LetterInput from "./LetterInput.svelte";
     export let index;
     $: lettersArr = $userGuessesArray[index];

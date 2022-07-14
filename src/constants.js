@@ -1,4 +1,5 @@
 const GAME_STATES = {
+    NEW_PLAYER: "NEW_PLAYER",
     PLAYING:"PLAYING",
     WIN: "WIN",
     LOSE:"LOSE"
